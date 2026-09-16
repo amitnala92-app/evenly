@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const sans = Plus_Jakarta_Sans({
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${heading.variable} min-h-dvh bg-background font-sans text-foreground antialiased`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
