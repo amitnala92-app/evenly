@@ -1,0 +1,80 @@
+import type { Expense, Settlement, Transfer, User } from "@/lib/types";
+
+export function personNet(
+  userId: string,
+  expenses: Expense[],
+  settlements: Settlement[]
+) {
+  let net = 0;
+  for (const expense of expenses) {
+    if (expense.paidById === userId) net += expense.amount;
+    net -= expense.shares[userId] || 0;
+  }
+  for (const settlement of settlements) {
+    if (settlement.fromId === userId) net += settlement.amount;
+    if (settlement.toId === userId) net -= settlement.amount;
+  }
+  return net;
+}
+
+export function simplifyDebts(
+  users: User[],
+  expenses: Expense[],
+  settlements: Settlement[]
+): Transfer[] {
+  const nets = users
+    .map((user) => ({
+      id: user.id,
+      net: personNet(user.id, expenses, settlements),
+    }))
+    .filter((row) => row.net !== 0);
+
+  const creditors = nets
+    .filter((row) => row.net > 0)
+    .map((row) => ({ ...row }))
+    .sort((a, b) => b.net - a.net);
+  const debtors = nets
+    .filter((row) => row.net < 0)
+    .map((row) => ({ ...row, net: -row.net }))
+    .sort((a, b) => b.net - a.net);
+
+  const transfers: Transfer[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const amount = Math.min(debtors[i].net, creditors[j].net);
+    if (amount > 0) {
+      transfers.push({
+        fromId: debtors[i].id,
+        toId: creditors[j].id,
+        amount,
+      });
+      debtors[i].net -= amount;
+      creditors[j].net -= amount;
+    }
+    if (debtors[i].net === 0) i += 1;
+    if (creditors[j].net === 0) j += 1;
+  }
+  return transfers;
+}
+
+export function totalsFor(
+  currentId: string,
+  users: User[],
+  expenses: Expense[],
+  settlements: Settlement[]
+) {
+  const transfers = simplifyDebts(users, expenses, settlements);
+  const youOwe = transfers
+    .filter((row) => row.fromId === currentId)
+    .reduce((sum, row) => sum + row.amount, 0);
+  const youAreOwed = transfers
+    .filter((row) => row.toId === currentId)
+    .reduce((sum, row) => sum + row.amount, 0);
+  return {
+    youOwe,
+    youAreOwed,
+    net: youAreOwed - youOwe,
+    transfers,
+  };
+}
