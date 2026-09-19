@@ -1,39 +1,50 @@
 import {
   Flame,
+  Fuel,
   Home,
   Receipt,
-  Ship,
   ShoppingBasket,
-  Wine,
   type LucideIcon,
 } from "lucide-react-native";
 import { Text, View } from "react-native";
 
 import { firstName, formatStamp, moneyAbs } from "@/lib/format";
-import type { Expense, Settlement, User } from "@/lib/types";
+import type {
+  Expense,
+  ExpenseSplit,
+  Settlement,
+  User,
+} from "@/src/store/useExpenseStore";
 
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  stay: Home,
-  home: Flame,
-  food: Wine,
-  groceries: ShoppingBasket,
-  travel: Ship,
-  general: Receipt,
+const DESCRIPTION_ICONS: Record<string, LucideIcon> = {
+  "Airbnb Cabin": Home,
+  "Supermarket Groceries": ShoppingBasket,
+  "Highway Gas & Tolls": Fuel,
 };
+
+function iconFor(description: string): LucideIcon {
+  return DESCRIPTION_ICONS[description] ?? (description.toLowerCase().includes("receipt")
+    ? Receipt
+    : Flame);
+}
 
 export function ExpenseCard({
   expense,
+  splits,
   members,
   currentUserId,
 }: {
   expense: Expense;
+  splits: ExpenseSplit[];
   members: User[];
   currentUserId: string;
 }) {
-  const payer = members.find((user) => user.id === expense.paidById);
-  const Icon = CATEGORY_ICONS[expense.category] ?? Receipt;
-  const yourShare = expense.shares[currentUserId] ?? 0;
-  const youPaid = expense.paidById === currentUserId;
+  const payer = members.find((user) => user.id === expense.paidByUserId);
+  const Icon = iconFor(expense.description);
+  const participants = splits.filter((split) => split.expenseId === expense.id);
+  const yourShare =
+    participants.find((split) => split.userId === currentUserId)?.owedAmountCents ?? 0;
+  const youPaid = expense.paidByUserId === currentUserId;
 
   return (
     <View className="rounded-3xl border border-border bg-card p-4">
@@ -49,16 +60,17 @@ export function ExpenseCard({
               </Text>
               <Text className="mt-0.5 text-sm text-muted">
                 {payer ? firstName(payer.name) : "Someone"} paid{" "}
-                {moneyAbs(expense.amount)}
+                {moneyAbs(expense.totalAmountCents)}
               </Text>
             </View>
             <Text className="text-[15px] font-semibold tabular-nums text-foreground">
-              {moneyAbs(expense.amount)}
+              {moneyAbs(expense.totalAmountCents)}
             </Text>
           </View>
           <View className="mt-3">
             <Text className="text-xs text-muted" numberOfLines={1}>
-              {formatStamp(expense.createdAt)} · split {expense.participantIds.length}
+              {formatStamp(expense.expenseDate)} · {expense.splitType.toLowerCase()} ·{" "}
+              {participants.length}
             </Text>
             <Text
               className={`mt-1 text-xs font-medium ${
@@ -67,7 +79,7 @@ export function ExpenseCard({
               numberOfLines={1}
             >
               {youPaid
-                ? `You lent ${moneyAbs(expense.amount - yourShare)}`
+                ? `You lent ${moneyAbs(expense.totalAmountCents - yourShare)}`
                 : `Your share ${moneyAbs(yourShare)}`}
             </Text>
           </View>
@@ -86,10 +98,10 @@ export function SettlementCard({
   members: User[];
   currentUserId: string;
 }) {
-  const from = members.find((user) => user.id === settlement.fromId);
-  const to = members.find((user) => user.id === settlement.toId);
-  const youPaid = settlement.fromId === currentUserId;
-  const youReceived = settlement.toId === currentUserId;
+  const from = members.find((user) => user.id === settlement.payerId);
+  const to = members.find((user) => user.id === settlement.payeeId);
+  const youPaid = settlement.payerId === currentUserId;
+  const youReceived = settlement.payeeId === currentUserId;
 
   return (
     <View className="rounded-3xl border border-border bg-card p-4">
@@ -102,9 +114,9 @@ export function SettlementCard({
           youReceived ? "text-credit" : youPaid ? "text-debit" : "text-muted"
         }`}
       >
-        {moneyAbs(settlement.amount)} settled
+        {moneyAbs(settlement.amountCents)} via {settlement.paymentMethod.toLowerCase()}
       </Text>
-      <Text className="mt-2 text-xs text-muted">{formatStamp(settlement.createdAt)}</Text>
+      <Text className="mt-2 text-xs text-muted">{formatStamp(settlement.settledAt)}</Text>
     </View>
   );
 }

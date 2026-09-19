@@ -7,20 +7,41 @@ import {
   Plus,
   Scale,
 } from "lucide-react-native";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyActivity, ExpenseCard, SettlementCard } from "@/components/activity-cards";
-import { money } from "@/lib/format";
-import { useEvenly } from "@/lib/store";
+import { money, moneyAbs } from "@/lib/format";
+import {
+  getPairTotals,
+  getSuggestedTransfers,
+  useCurrentUser,
+  useExpenseStore,
+} from "@/src/store/useExpenseStore";
+
+const INVITE_URL = "https://evenly.app/join/cabin-trip";
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { group, groups, net, selectGroup, expenses, settlements, members, currentUser } =
-    useEvenly();
+  const currentUser = useCurrentUser();
+  const users = useExpenseStore((state) => state.users);
+  const expenses = useExpenseStore((state) => state.expenses);
+  const splits = useExpenseStore((state) => state.splits);
+  const settlements = useExpenseStore((state) => state.settlements);
+  const net = useExpenseStore((state) =>
+    state.getUserNetBalance(currentUser.id)
+  );
+  const groupSpend = useExpenseStore((state) => state.getGroupTotalSpend());
+  const resetDemoData = useExpenseStore((state) => state.resetDemoData);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const transfers = useMemo(
+    () => getSuggestedTransfers({ users, expenses, splits, settlements }),
+    [users, expenses, splits, settlements]
+  );
+  const { youOwe, youAreOwed } = getPairTotals(transfers, currentUser.id);
 
   const owed = net > 0;
   const owes = net < 0;
@@ -36,24 +57,28 @@ export default function DashboardScreen() {
       : "You're settled up";
 
   const invite = async () => {
-    await Clipboard.setStringAsync(group.inviteUrl);
-    Alert.alert("Invite link copied", group.inviteUrl);
+    await Clipboard.setStringAsync(INVITE_URL);
+    Alert.alert("Invite link copied", INVITE_URL);
   };
 
-  const recentItems = [
-    ...expenses.map((expense) => ({
-      kind: "expense" as const,
-      at: expense.createdAt,
-      expense,
-    })),
-    ...settlements.map((settlement) => ({
-      kind: "settlement" as const,
-      at: settlement.createdAt,
-      settlement,
-    })),
-  ]
-    .sort((a, b) => (a.at < b.at ? 1 : -1))
-    .slice(0, 3);
+  const recentItems = useMemo(
+    () =>
+      [
+        ...expenses.map((expense) => ({
+          kind: "expense" as const,
+          at: expense.expenseDate,
+          expense,
+        })),
+        ...settlements.map((settlement) => ({
+          kind: "settlement" as const,
+          at: settlement.settledAt,
+          settlement,
+        })),
+      ]
+        .sort((a, b) => (a.at < b.at ? 1 : -1))
+        .slice(0, 3),
+    [expenses, settlements]
+  );
 
   return (
     <View className="flex-1 bg-background">
@@ -86,35 +111,37 @@ export default function DashboardScreen() {
             className="h-12 flex-row items-center rounded-full border border-border bg-card px-4"
           >
             <Text className="mr-2 text-[15px] font-semibold text-foreground">
-              {group.name}
+              Cabin Trip 🌲
             </Text>
             <ChevronDown color="#94A3B8" size={18} strokeWidth={2.2} />
           </Pressable>
           {pickerOpen ? (
-            <View className="absolute left-0 top-14 z-40 min-w-[220px] rounded-2xl border border-border bg-card p-2">
-              {groups.map((item) => {
-                const selected = item.id === group.id;
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => {
-                      selectGroup(item.id);
-                      setPickerOpen(false);
-                    }}
-                    className={`h-11 flex-row items-center rounded-xl px-3 ${
-                      selected ? "bg-background" : "bg-transparent"
-                    }`}
-                  >
-                    <Text
-                      className={`text-[15px] font-medium ${
-                        selected ? "text-primary" : "text-foreground"
-                      }`}
-                    >
-                      {item.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View className="absolute left-0 top-14 z-40 min-w-[240px] rounded-2xl border border-border bg-card p-2">
+              <View className="h-11 flex-row items-center rounded-xl bg-background px-3">
+                <Text className="text-[15px] font-medium text-primary">Cabin Trip 🌲</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Reset demo data"
+                onPress={() => {
+                  setPickerOpen(false);
+                  Alert.alert(
+                    "Reset Cabin Trip?",
+                    "This restores the demo users, expenses, and settlements.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Reset",
+                        style: "destructive",
+                        onPress: () => resetDemoData(),
+                      },
+                    ]
+                  );
+                }}
+                className="mt-1 h-11 justify-center rounded-xl px-3"
+              >
+                <Text className="text-[15px] font-medium text-debit">Reset demo data</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -136,6 +163,23 @@ export default function DashboardScreen() {
             {money(net)}
           </Text>
           <Text className="mt-2 text-sm text-muted">{standingLabel}</Text>
+          <View className="mt-5 flex-row gap-3">
+            <View className="flex-1 rounded-2xl bg-background px-3 py-3">
+              <Text className="text-xs text-muted">You owe</Text>
+              <Text className="mt-1 text-lg font-semibold tabular-nums text-debit">
+                {moneyAbs(youOwe)}
+              </Text>
+            </View>
+            <View className="flex-1 rounded-2xl bg-background px-3 py-3">
+              <Text className="text-xs text-muted">You are owed</Text>
+              <Text className="mt-1 text-lg font-semibold tabular-nums text-credit">
+                {moneyAbs(youAreOwed)}
+              </Text>
+            </View>
+          </View>
+          <Text className="mt-4 text-xs text-muted">
+            {users.length} people · {moneyAbs(groupSpend)} spent
+          </Text>
         </View>
 
         <View className="mt-5 flex-row gap-2">
@@ -175,14 +219,15 @@ export default function DashboardScreen() {
                   <ExpenseCard
                     key={item.expense.id}
                     expense={item.expense}
-                    members={members}
+                    splits={splits}
+                    members={users}
                     currentUserId={currentUser.id}
                   />
                 ) : (
                   <SettlementCard
                     key={item.settlement.id}
                     settlement={item.settlement}
-                    members={members}
+                    members={users}
                     currentUserId={currentUser.id}
                   />
                 )

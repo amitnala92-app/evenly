@@ -1,13 +1,29 @@
 import { ArrowRight, Check } from "lucide-react-native";
+import { useMemo } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { firstName, initials, money, moneyAbs } from "@/lib/format";
-import { useEvenly } from "@/lib/store";
+import {
+  getSuggestedTransfers,
+  preferredPayment,
+  useCurrentUser,
+  useExpenseStore,
+} from "@/src/store/useExpenseStore";
 
 export default function SettleScreen() {
   const insets = useSafeAreaInsets();
-  const { net, transfers, members, currentUser, settleTransfer } = useEvenly();
+  const currentUser = useCurrentUser();
+  const users = useExpenseStore((state) => state.users);
+  const expenses = useExpenseStore((state) => state.expenses);
+  const splits = useExpenseStore((state) => state.splits);
+  const settlements = useExpenseStore((state) => state.settlements);
+  const net = useExpenseStore((state) => state.getUserNetBalance(currentUser.id));
+  const recordSettlement = useExpenseStore((state) => state.recordSettlement);
+  const transfers = useMemo(
+    () => getSuggestedTransfers({ users, expenses, splits, settlements }),
+    [users, expenses, splits, settlements]
+  );
   const owed = net > 0;
   const owes = net < 0;
 
@@ -53,20 +69,21 @@ export default function SettleScreen() {
           </View>
         ) : (
           transfers.map((transfer) => {
-            const from = members.find((user) => user.id === transfer.fromId);
-            const to = members.find((user) => user.id === transfer.toId);
+            const from = users.find((user) => user.id === transfer.fromId);
+            const to = users.find((user) => user.id === transfer.toId);
             if (!from || !to) return null;
             const youPay = transfer.fromId === currentUser.id;
             const youReceive = transfer.toId === currentUser.id;
+            const payout = preferredPayment(to);
             return (
               <View
-                key={`${transfer.fromId}-${transfer.toId}-${transfer.amount}`}
+                key={`${transfer.fromId}-${transfer.toId}-${transfer.amountCents}`}
                 className="rounded-3xl border border-border bg-card p-4"
               >
                 <View className="flex-row items-center">
                   <View
                     className="h-11 w-11 items-center justify-center rounded-full"
-                    style={{ backgroundColor: from.color }}
+                    style={{ backgroundColor: from.avatar }}
                   >
                     <Text className="text-xs font-semibold text-white">
                       {initials(from.name)}
@@ -77,7 +94,7 @@ export default function SettleScreen() {
                   </View>
                   <View
                     className="h-11 w-11 items-center justify-center rounded-full"
-                    style={{ backgroundColor: to.color }}
+                    style={{ backgroundColor: to.avatar }}
                   >
                     <Text className="text-xs font-semibold text-white">
                       {initials(to.name)}
@@ -93,16 +110,28 @@ export default function SettleScreen() {
                         youPay ? "text-debit" : youReceive ? "text-credit" : "text-muted"
                       }`}
                     >
-                      {moneyAbs(transfer.amount)}
+                      {moneyAbs(transfer.amountCents)}
+                    </Text>
+                    <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
+                      {payout.method === "VENMO"
+                        ? `Venmo ${payout.detail}`
+                        : payout.method === "UPI"
+                          ? `UPI ${payout.detail}`
+                          : "Cash"}
                     </Text>
                   </View>
                 </View>
                 <Pressable
                   onPress={() => {
-                    settleTransfer(transfer.fromId, transfer.toId, transfer.amount);
+                    recordSettlement({
+                      payerId: transfer.fromId,
+                      payeeId: transfer.toId,
+                      amountCents: transfer.amountCents,
+                      paymentMethod: payout.method,
+                    });
                     Alert.alert(
                       "Settled",
-                      `Recorded ${moneyAbs(transfer.amount)} from ${firstName(from.name)} to ${firstName(to.name)}.`
+                      `Recorded ${moneyAbs(transfer.amountCents)} from ${firstName(from.name)} to ${firstName(to.name)}.`
                     );
                   }}
                   className="mt-4 h-11 flex-row items-center justify-center rounded-2xl bg-credit/15"

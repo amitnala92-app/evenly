@@ -1,28 +1,37 @@
 import { useRouter } from "expo-router";
 import { Plus } from "lucide-react-native";
+import { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyActivity, ExpenseCard, SettlementCard } from "@/components/activity-cards";
-import { useEvenly } from "@/lib/store";
+import { useCurrentUser, useExpenseStore } from "@/src/store/useExpenseStore";
 
 export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { expenses, settlements, members, currentUser } = useEvenly();
+  const currentUser = useCurrentUser();
+  const users = useExpenseStore((state) => state.users);
+  const expenses = useExpenseStore((state) => state.expenses);
+  const splits = useExpenseStore((state) => state.splits);
+  const settlements = useExpenseStore((state) => state.settlements);
 
-  const items = [
-    ...expenses.map((expense) => ({
-      kind: "expense" as const,
-      at: expense.createdAt,
-      expense,
-    })),
-    ...settlements.map((settlement) => ({
-      kind: "settlement" as const,
-      at: settlement.createdAt,
-      settlement,
-    })),
-  ].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const items = useMemo(
+    () =>
+      [
+        ...expenses.map((expense) => ({
+          kind: "expense" as const,
+          at: expense.expenseDate,
+          expense,
+        })),
+        ...settlements.map((settlement) => ({
+          kind: "settlement" as const,
+          at: settlement.settledAt,
+          settlement,
+        })),
+      ].sort((a, b) => (a.at < b.at ? 1 : -1)),
+    [expenses, settlements]
+  );
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top + 16 }}>
@@ -54,14 +63,15 @@ export default function ActivityScreen() {
               <ExpenseCard
                 key={item.expense.id}
                 expense={item.expense}
-                members={members}
+                splits={splits}
+                members={users}
                 currentUserId={currentUser.id}
               />
             ) : (
               <SettlementCard
                 key={item.settlement.id}
                 settlement={item.settlement}
-                members={members}
+                members={users}
                 currentUserId={currentUser.id}
               />
             )
