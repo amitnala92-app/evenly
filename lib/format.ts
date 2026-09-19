@@ -1,25 +1,26 @@
 export function money(cents: number) {
-  const amount = (Number(cents) || 0) / 100;
-  const formatted = Math.abs(amount).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-  });
-  if (amount > 0) return `+${formatted}`;
-  if (amount < 0) return `-${formatted}`;
+  const value = Number.isInteger(cents) ? cents : 0;
+  const formatted = moneyAbs(value);
+  if (value > 0) return `+${formatted}`;
+  if (value < 0) return `-${formatted}`;
   return formatted;
 }
 
 export function moneyAbs(cents: number) {
-  return Math.abs((Number(cents) || 0) / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-  });
+  const value = Math.abs(Number.isInteger(cents) ? cents : 0);
+  const dollars = Math.trunc(value / 100);
+  const fraction = value - dollars * 100;
+  return `$${dollars.toLocaleString("en-US")}.${String(fraction).padStart(2, "0")}`;
 }
 
 export function parseAmount(input: string) {
   const cleaned = String(input ?? "").replace(/[^0-9.]/g, "");
   if (!cleaned) return 0;
-  return Math.round(Number(cleaned) * 100);
+  const [wholeRaw, fractionRaw = ""] = cleaned.split(".");
+  const whole = Number.parseInt(wholeRaw || "0", 10);
+  const fraction = Number.parseInt((fractionRaw + "00").slice(0, 2), 10);
+  if (!Number.isInteger(whole) || !Number.isInteger(fraction)) return 0;
+  return whole * 100 + fraction;
 }
 
 export function initials(name: string) {
@@ -45,16 +46,5 @@ export function formatStamp(iso: string) {
 }
 
 export function uid(prefix = "id") {
-  return `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
-}
-
-export function sharesForEqual(amount: number, participantIds: string[]) {
-  const count = participantIds.length || 1;
-  const base = Math.floor(amount / count);
-  const remainder = amount - base * count;
-  const shares: Record<string, number> = {};
-  participantIds.forEach((id, index) => {
-    shares[id] = base + (index < remainder ? 1 : 0);
-  });
-  return shares;
+  return `${prefix}_${Math.trunc(Math.random() * 1_000_000).toString(36)}${Date.now().toString(36)}`;
 }

@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { firstName, parseAmount } from "@/lib/format";
-import { useEvenly } from "@/lib/store";
+import { useCurrentUser, useExpenseStore } from "@/src/store/useExpenseStore";
 
 export default function AddExpenseScreen() {
   const router = useRouter();
@@ -23,17 +23,19 @@ export default function AddExpenseScreen() {
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const scanned = source === "scan";
 
-  const { members, currentUser, addExpense } = useEvenly();
+  const currentUser = useCurrentUser();
+  const users = useExpenseStore((state) => state.users);
+  const addExpense = useExpenseStore((state) => state.addExpense);
   const [description, setDescription] = useState(scanned ? "Scanned receipt" : "");
   const [amount, setAmount] = useState(scanned ? "24.80" : "");
   const [paidById, setPaidById] = useState(currentUser.id);
-  const [splitIds, setSplitIds] = useState<string[]>(members.map((user) => user.id));
+  const [splitIds, setSplitIds] = useState<string[]>(users.map((user) => user.id));
 
   const cents = parseAmount(amount);
   const canSubmit = description.trim().length > 0 && cents > 0 && splitIds.length >= 1;
   const sharePreview = useMemo(() => {
     if (cents <= 0 || splitIds.length === 0) return null;
-    return Math.floor(cents / splitIds.length);
+    return Math.trunc(cents / splitIds.length);
   }, [cents, splitIds.length]);
 
   const toggleSplit = (id: string) => {
@@ -50,10 +52,11 @@ export default function AddExpenseScreen() {
     if (!canSubmit) return;
     addExpense({
       description: description.trim(),
-      amount: cents,
-      paidById,
-      participantIds: splitIds,
-      category: scanned ? "general" : "food",
+      totalAmountCents: cents,
+      paidByUserId: paidById,
+      splitType: "EQUAL",
+      participantUserIds: splitIds,
+      receiptUrl: scanned ? "demo://scanned-receipt" : undefined,
     });
     router.back();
   };
@@ -112,7 +115,7 @@ export default function AddExpenseScreen() {
 
           <Text className="mt-5 text-sm font-medium text-muted">Paid by</Text>
           <View className="mt-2 flex-row flex-wrap gap-2">
-            {members.map((user) => {
+            {users.map((user) => {
               const selected = user.id === paidById;
               return (
                 <Pressable
@@ -127,7 +130,7 @@ export default function AddExpenseScreen() {
                       selected ? "text-primary" : "text-foreground"
                     }`}
                   >
-                    {user.id === currentUser.id ? `${firstName(user.name)} (you)` : firstName(user.name)}
+                    {user.isCurrentUser ? `${firstName(user.name)} (you)` : firstName(user.name)}
                   </Text>
                 </Pressable>
               );
@@ -138,16 +141,12 @@ export default function AddExpenseScreen() {
             <Text className="text-sm font-medium text-muted">Split equally</Text>
             {sharePreview != null ? (
               <Text className="text-xs text-muted">
-                {(sharePreview / 100).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}{" "}
-                each
+                {Math.trunc(sharePreview / 100)}.{String(sharePreview % 100).padStart(2, "0")} each
               </Text>
             ) : null}
           </View>
           <View className="mt-2 gap-2">
-            {members.map((user) => {
+            {users.map((user) => {
               const selected = splitIds.includes(user.id);
               return (
                 <Pressable
@@ -162,10 +161,12 @@ export default function AddExpenseScreen() {
                       selected ? "border-primary bg-primary" : "border-muted"
                     }`}
                   >
-                    {selected ? <Text className="text-[11px] font-bold text-background">✓</Text> : null}
+                    {selected ? (
+                      <Text className="text-[11px] font-bold text-background">✓</Text>
+                    ) : null}
                   </View>
                   <Text className="text-sm font-medium text-foreground">
-                    {user.id === currentUser.id ? `${firstName(user.name)} (you)` : user.name}
+                    {user.isCurrentUser ? `${firstName(user.name)} (you)` : user.name}
                   </Text>
                 </Pressable>
               );
