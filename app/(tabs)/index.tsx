@@ -5,20 +5,21 @@ import {
   ChevronDown,
   Link as LinkIcon,
   Plus,
-  Receipt,
   Scale,
 } from "lucide-react-native";
 import { useState, type ReactNode } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { EmptyActivity, ExpenseCard, SettlementCard } from "@/components/activity-cards";
 import { money } from "@/lib/format";
 import { useEvenly } from "@/lib/store";
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { group, groups, net, selectGroup } = useEvenly();
+  const { group, groups, net, selectGroup, expenses, settlements, members, currentUser } =
+    useEvenly();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const owed = net > 0;
@@ -38,6 +39,21 @@ export default function DashboardScreen() {
     await Clipboard.setStringAsync(group.inviteUrl);
     Alert.alert("Invite link copied", group.inviteUrl);
   };
+
+  const recentItems = [
+    ...expenses.map((expense) => ({
+      kind: "expense" as const,
+      at: expense.createdAt,
+      expense,
+    })),
+    ...settlements.map((settlement) => ({
+      kind: "settlement" as const,
+      at: settlement.createdAt,
+      settlement,
+    })),
+  ]
+    .sort((a, b) => (a.at < b.at ? 1 : -1))
+    .slice(0, 3);
 
   return (
     <View className="flex-1 bg-background">
@@ -127,16 +143,12 @@ export default function DashboardScreen() {
             label="+ Add Expense"
             icon={<Plus color="#0F172A" size={16} strokeWidth={2.6} />}
             accent
-            onPress={() => {
-              Alert.alert("Add Expense", "Expense composer is coming next.");
-            }}
+            onPress={() => router.push("/add-expense")}
           />
           <QuickAction
             label="Scan Receipt"
             icon={<Camera color="#F8FAFC" size={16} strokeWidth={2.2} />}
-            onPress={() => {
-              Alert.alert("Scan Receipt", "Camera capture is coming next.");
-            }}
+            onPress={() => router.push({ pathname: "/add-expense", params: { source: "scan" } })}
           />
           <QuickAction
             label="Settle Up"
@@ -154,16 +166,28 @@ export default function DashboardScreen() {
               <Text className="text-sm font-semibold text-primary">See all</Text>
             </Pressable>
           </View>
-          <View className="mt-3 items-center rounded-3xl border border-dashed border-border bg-card px-6 py-10">
-            <View className="mb-3 h-12 w-12 items-center justify-center rounded-full bg-background">
-              <Receipt color="#94A3B8" size={22} strokeWidth={2} />
-            </View>
-            <Text className="text-base font-semibold text-foreground">
-              No activity yet
-            </Text>
-            <Text className="mt-1 text-center text-sm leading-5 text-muted">
-              Split a dinner or scan a receipt and it will land here.
-            </Text>
+          <View className="mt-3 gap-3">
+            {recentItems.length === 0 ? (
+              <EmptyActivity />
+            ) : (
+              recentItems.map((item) =>
+                item.kind === "expense" ? (
+                  <ExpenseCard
+                    key={item.expense.id}
+                    expense={item.expense}
+                    members={members}
+                    currentUserId={currentUser.id}
+                  />
+                ) : (
+                  <SettlementCard
+                    key={item.settlement.id}
+                    settlement={item.settlement}
+                    members={members}
+                    currentUserId={currentUser.id}
+                  />
+                )
+              )
+            )}
           </View>
         </View>
       </ScrollView>

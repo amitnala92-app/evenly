@@ -18,6 +18,10 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="add-expense"
+            options={{ presentation: "modal", animation: "slide_from_bottom" }}
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       </EvenlyProvider>
