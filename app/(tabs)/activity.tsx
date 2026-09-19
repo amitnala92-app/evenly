@@ -43,7 +43,7 @@ export default function ActivityScreen() {
           </Text>
         </View>
         <Pressable
-          onPress={() => router.push("/add-expense")}
+          onPress={() => router.push("/modal/add-expense")}
           className="h-10 flex-row items-center rounded-full bg-primary px-3"
         >
           <Plus color="#0F172A" size={16} strokeWidth={2.4} />

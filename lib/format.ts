@@ -23,6 +23,20 @@ export function parseAmount(input: string) {
   return whole * 100 + fraction;
 }
 
+export function digitsToCents(raw: string): number {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return 0;
+  const cents = Number.parseInt(digits, 10);
+  return Number.isInteger(cents) ? cents : 0;
+}
+
+export function formatCentsInput(cents: number): string {
+  const value = Number.isInteger(cents) && cents > 0 ? cents : 0;
+  const dollars = Math.trunc(value / 100);
+  const fraction = value - dollars * 100;
+  return `${dollars}.${String(fraction).padStart(2, "0")}`;
+}
+
 export function initials(name: string) {
   return name
     .split(" ")

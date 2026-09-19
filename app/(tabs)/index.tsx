@@ -187,12 +187,14 @@ export default function DashboardScreen() {
             label="+ Add Expense"
             icon={<Plus color="#0F172A" size={16} strokeWidth={2.6} />}
             accent
-            onPress={() => router.push("/add-expense")}
+            onPress={() => router.push("/modal/add-expense")}
           />
           <QuickAction
             label="Scan Receipt"
             icon={<Camera color="#F8FAFC" size={16} strokeWidth={2.2} />}
-            onPress={() => router.push({ pathname: "/add-expense", params: { source: "scan" } })}
+            onPress={() =>
+              router.push({ pathname: "/modal/add-expense", params: { source: "scan" } })
+            }
           />
           <QuickAction
             label="Settle Up"
@@ -253,6 +255,8 @@ function QuickAction({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       className={`min-h-[88px] flex-1 items-center justify-center rounded-2xl border px-2 ${
         accent ? "border-primary bg-primary" : "border-border bg-card"
