@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Evenly",
+    "slug": "evenly",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "evenly",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.evenly.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F172A"
+      },
+      "package": "app.evenly.mobile",
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router", "expo-font"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
