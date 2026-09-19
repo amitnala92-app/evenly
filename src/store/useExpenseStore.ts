@@ -425,6 +425,25 @@ export const useExpenseStore = create<ExpenseStore>()(
   )
 );
 
+export function preferredPayment(user: User): {
+  method: PaymentMethod;
+  detail: string;
+} {
+  if (user.venmoHandle) return { method: "VENMO", detail: user.venmoHandle };
+  if (user.upiId) return { method: "UPI", detail: user.upiId };
+  return { method: "CASH", detail: "Cash" };
+}
+
+export function getPairTotals(transfers: Transfer[], userId: string) {
+  let youOwe = 0;
+  let youAreOwed = 0;
+  for (const transfer of transfers) {
+    if (transfer.fromId === userId) youOwe += transfer.amountCents;
+    if (transfer.toId === userId) youAreOwed += transfer.amountCents;
+  }
+  return { youOwe, youAreOwed };
+}
+
 export function useCurrentUser(): User {
   const user = useExpenseStore((state) =>
     state.users.find((member) => member.isCurrentUser)

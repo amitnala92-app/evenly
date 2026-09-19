@@ -12,8 +12,10 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyActivity, ExpenseCard, SettlementCard } from "@/components/activity-cards";
-import { money } from "@/lib/format";
+import { money, moneyAbs } from "@/lib/format";
 import {
+  getPairTotals,
+  getSuggestedTransfers,
   useCurrentUser,
   useExpenseStore,
 } from "@/src/store/useExpenseStore";
@@ -31,7 +33,15 @@ export default function DashboardScreen() {
   const net = useExpenseStore((state) =>
     state.getUserNetBalance(currentUser.id)
   );
+  const groupSpend = useExpenseStore((state) => state.getGroupTotalSpend());
+  const resetDemoData = useExpenseStore((state) => state.resetDemoData);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const transfers = useMemo(
+    () => getSuggestedTransfers({ users, expenses, splits, settlements }),
+    [users, expenses, splits, settlements]
+  );
+  const { youOwe, youAreOwed } = getPairTotals(transfers, currentUser.id);
 
   const owed = net > 0;
   const owes = net < 0;
@@ -106,10 +116,32 @@ export default function DashboardScreen() {
             <ChevronDown color="#94A3B8" size={18} strokeWidth={2.2} />
           </Pressable>
           {pickerOpen ? (
-            <View className="absolute left-0 top-14 z-40 min-w-[220px] rounded-2xl border border-border bg-card p-2">
+            <View className="absolute left-0 top-14 z-40 min-w-[240px] rounded-2xl border border-border bg-card p-2">
               <View className="h-11 flex-row items-center rounded-xl bg-background px-3">
                 <Text className="text-[15px] font-medium text-primary">Cabin Trip 🌲</Text>
               </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Reset demo data"
+                onPress={() => {
+                  setPickerOpen(false);
+                  Alert.alert(
+                    "Reset Cabin Trip?",
+                    "This restores the demo users, expenses, and settlements.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Reset",
+                        style: "destructive",
+                        onPress: () => resetDemoData(),
+                      },
+                    ]
+                  );
+                }}
+                className="mt-1 h-11 justify-center rounded-xl px-3"
+              >
+                <Text className="text-[15px] font-medium text-debit">Reset demo data</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -131,6 +163,23 @@ export default function DashboardScreen() {
             {money(net)}
           </Text>
           <Text className="mt-2 text-sm text-muted">{standingLabel}</Text>
+          <View className="mt-5 flex-row gap-3">
+            <View className="flex-1 rounded-2xl bg-background px-3 py-3">
+              <Text className="text-xs text-muted">You owe</Text>
+              <Text className="mt-1 text-lg font-semibold tabular-nums text-debit">
+                {moneyAbs(youOwe)}
+              </Text>
+            </View>
+            <View className="flex-1 rounded-2xl bg-background px-3 py-3">
+              <Text className="text-xs text-muted">You are owed</Text>
+              <Text className="mt-1 text-lg font-semibold tabular-nums text-credit">
+                {moneyAbs(youAreOwed)}
+              </Text>
+            </View>
+          </View>
+          <Text className="mt-4 text-xs text-muted">
+            {users.length} people · {moneyAbs(groupSpend)} spent
+          </Text>
         </View>
 
         <View className="mt-5 flex-row gap-2">

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { firstName, initials, money, moneyAbs } from "@/lib/format";
 import {
   getSuggestedTransfers,
+  preferredPayment,
   useCurrentUser,
   useExpenseStore,
 } from "@/src/store/useExpenseStore";
@@ -73,7 +74,7 @@ export default function SettleScreen() {
             if (!from || !to) return null;
             const youPay = transfer.fromId === currentUser.id;
             const youReceive = transfer.toId === currentUser.id;
-            const method = from.upiId ? "UPI" : from.venmoHandle ? "VENMO" : "CASH";
+            const payout = preferredPayment(to);
             return (
               <View
                 key={`${transfer.fromId}-${transfer.toId}-${transfer.amountCents}`}
@@ -111,6 +112,13 @@ export default function SettleScreen() {
                     >
                       {moneyAbs(transfer.amountCents)}
                     </Text>
+                    <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
+                      {payout.method === "VENMO"
+                        ? `Venmo ${payout.detail}`
+                        : payout.method === "UPI"
+                          ? `UPI ${payout.detail}`
+                          : "Cash"}
+                    </Text>
                   </View>
                 </View>
                 <Pressable
@@ -119,7 +127,7 @@ export default function SettleScreen() {
                       payerId: transfer.fromId,
                       payeeId: transfer.toId,
                       amountCents: transfer.amountCents,
-                      paymentMethod: method,
+                      paymentMethod: payout.method,
                     });
                     Alert.alert(
                       "Settled",
