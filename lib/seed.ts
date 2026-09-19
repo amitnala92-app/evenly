@@ -31,16 +31,38 @@ function expense(
 
 const all = ["u1", "u2", "u3", "u4"] as const;
 
+export const GROUPS = [
+  {
+    id: "g-cabin",
+    name: "Cabin Trip 🌲",
+    slug: "cabin-trip",
+    inviteUrl: "https://evenly.app/join/cabin-trip",
+  },
+  {
+    id: "g-nyc",
+    name: "NYC Weekend",
+    slug: "nyc-weekend",
+    inviteUrl: "https://evenly.app/join/nyc-weekend",
+  },
+  {
+    id: "g-house",
+    name: "House Bills",
+    slug: "house-bills",
+    inviteUrl: "https://evenly.app/join/house-bills",
+  },
+] as const;
+
 export function createSeed(): EvenlyState {
+  const cabin = GROUPS[0];
   return {
     sessionUserId: "u1",
     users,
     group: {
-      id: "g-cabin",
-      name: "Cabin Trip 🌲",
-      slug: "cabin-trip",
+      id: cabin.id,
+      name: cabin.name,
+      slug: cabin.slug,
       memberIds: [...all],
-      inviteUrl: "https://evenly.app/join/cabin-trip",
+      inviteUrl: cabin.inviteUrl,
     },
     expenses: [
       expense(

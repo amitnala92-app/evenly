@@ -1,17 +1,16 @@
-"use client";
-
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 
 import { totalsFor } from "@/lib/balances";
 import { sharesForEqual, uid } from "@/lib/format";
-import { createSeed } from "@/lib/seed";
-import type { AddExpenseInput, EvenlyState } from "@/lib/types";
+import { GROUPS, createSeed } from "@/lib/seed";
+import type { AddExpenseInput, EvenlyState, Group } from "@/lib/types";
 
 type EvenlyStore = EvenlyState & {
   net: number;
@@ -20,13 +19,15 @@ type EvenlyStore = EvenlyState & {
   transfers: ReturnType<typeof totalsFor>["transfers"];
   currentUser: EvenlyState["users"][number];
   members: EvenlyState["users"];
+  groups: readonly (typeof GROUPS)[number][];
   addExpense: (input: AddExpenseInput) => void;
   settleTransfer: (fromId: string, toId: string, amount: number) => void;
+  selectGroup: (groupId: string) => void;
 };
 
 const EvenlyContext = createContext<EvenlyStore | null>(null);
 
-export function EvenlyProvider({ children }: { children: React.ReactNode }) {
+export function EvenlyProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<EvenlyState>(createSeed);
 
   const addExpense = useCallback((input: AddExpenseInput) => {
@@ -73,12 +74,30 @@ export function EvenlyProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const selectGroup = useCallback((groupId: string) => {
+    const next = GROUPS.find((group) => group.id === groupId);
+    if (!next) return;
+    setState((prev) => ({
+      ...prev,
+      group: {
+        ...prev.group,
+        id: next.id,
+        name: next.name,
+        slug: next.slug,
+        inviteUrl: next.inviteUrl,
+      } satisfies Group,
+    }));
+  }, []);
+
   const value = useMemo<EvenlyStore>(() => {
     const members = state.group.memberIds
       .map((id) => state.users.find((user) => user.id === id))
       .filter((user): user is EvenlyState["users"][number] => Boolean(user));
     const currentUser =
       state.users.find((user) => user.id === state.sessionUserId) ?? members[0];
+    if (!currentUser) {
+      throw new Error("Evenly requires at least one group member");
+    }
     const summary = totalsFor(
       currentUser.id,
       members,
@@ -90,10 +109,12 @@ export function EvenlyProvider({ children }: { children: React.ReactNode }) {
       ...summary,
       currentUser,
       members,
+      groups: GROUPS,
       addExpense,
       settleTransfer,
+      selectGroup,
     };
-  }, [addExpense, settleTransfer, state]);
+  }, [addExpense, selectGroup, settleTransfer, state]);
 
   return (
     <EvenlyContext.Provider value={value}>{children}</EvenlyContext.Provider>

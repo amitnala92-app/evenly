@@ -8,7 +8,7 @@ export function personNet(
   let net = 0;
   for (const expense of expenses) {
     if (expense.paidById === userId) net += expense.amount;
-    net -= expense.shares[userId] || 0;
+    net -= expense.shares[userId] ?? 0;
   }
   for (const settlement of settlements) {
     if (settlement.fromId === userId) net += settlement.amount;
@@ -42,18 +42,21 @@ export function simplifyDebts(
   let i = 0;
   let j = 0;
   while (i < debtors.length && j < creditors.length) {
-    const amount = Math.min(debtors[i].net, creditors[j].net);
+    const debtor = debtors[i];
+    const creditor = creditors[j];
+    if (!debtor || !creditor) break;
+    const amount = Math.min(debtor.net, creditor.net);
     if (amount > 0) {
       transfers.push({
-        fromId: debtors[i].id,
-        toId: creditors[j].id,
+        fromId: debtor.id,
+        toId: creditor.id,
         amount,
       });
-      debtors[i].net -= amount;
-      creditors[j].net -= amount;
+      debtor.net -= amount;
+      creditor.net -= amount;
     }
-    if (debtors[i].net === 0) i += 1;
-    if (creditors[j].net === 0) j += 1;
+    if (debtor.net === 0) i += 1;
+    if (creditor.net === 0) j += 1;
   }
   return transfers;
 }
